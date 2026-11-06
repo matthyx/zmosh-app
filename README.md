@@ -5,7 +5,9 @@ Mobile client for the [**zmosh**](https://github.com/matthyx/zmosh) roaming gate
 Built with **Flutter**, [**xterm.dart**](https://pub.dev/packages/xterm), and high-performance native UDP roaming via [**libzmosh**](https://github.com/matthyx/zmosh).
 
 <p align="center">
-  <img src="docs/screenshots/terminal.png" alt="zmosh-app running on Android tablet" width="450">
+  <img src="docs/screenshots/terminal-dark.png" alt="Dark Theme" width="45%" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/terminal-light.png" alt="Light / E-Ink Theme" width="45%" />
 </p>
 
 ---
@@ -16,6 +18,7 @@ Traditional SSH connections on mobile devices frequently drop when switching bet
 
 `zmosh-app` provides a native, cross-platform mobile interface:
 - **Resilient Mobile Shell**: Seamlessly transitions between Wi-Fi and 4G/5G without terminating running jobs or breaking terminal state.
+- **Dark & Light / E-Ink Modes**: Full high-contrast light theme engineered for outdoor sunlight and reflective paper displays (e.g. HannsNote2), alongside classic dark mode.
 - **Embedded C Engine**: Uses precompiled `libzmosh.so` via Dart FFI with zero runtime dependencies.
 - **SSH Bootstrapping**: Automatically dials your server over SSH, starts `zmosh serve <session>`, retrieves the ephemeral UDP port and crypto key, and handshakes over UDP.
 - **Hardware & Touch Terminal**: Powered by `xterm.dart` with support for high DPI displays, virtual modifier keys (`Ctrl`, `Alt`, `Esc`, `Tab`, directional arrows), and dynamic resize synchronization.
