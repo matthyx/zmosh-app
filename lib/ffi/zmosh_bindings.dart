@@ -125,6 +125,7 @@ class ZmoshSession {
 
   static void _staticOutputCallback(Pointer<Void> ctx, Pointer<Uint8> data, int len) {
     if (_activeSession != null && len > 0) {
+      _activeSession!._boostPolling();
       final list = data.asTypedList(len);
       _activeSession!.onOutput(List<int>.from(list));
     }
@@ -202,12 +203,40 @@ class ZmoshSession {
     }
   }
 
+  DateTime _lastActivity = DateTime.now();
+  int _currentIntervalMs = 16;
+
+  void _boostPolling() {
+    _lastActivity = DateTime.now();
+    if (_currentIntervalMs != 16) {
+      _currentIntervalMs = 16;
+      _reschedulePolling(16);
+    }
+  }
+
+  void _reschedulePolling(int intervalMs) {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(Duration(milliseconds: intervalMs), (_) => _pollStep());
+  }
+
+  void _pollStep() {
+    if (_session == null || _session == nullptr) return;
+    _lib.zmoshPoll(_session!);
+
+    final idleMs = DateTime.now().difference(_lastActivity).inMilliseconds;
+    if (idleMs > 5000 && _currentIntervalMs != 250) {
+      _currentIntervalMs = 250;
+      _reschedulePolling(250);
+    } else if (idleMs > 1000 && idleMs <= 5000 && _currentIntervalMs != 100) {
+      _currentIntervalMs = 100;
+      _reschedulePolling(100);
+    }
+  }
+
   void _startPolling() {
-    // 50Hz polling loop (~20ms) for high responsiveness over UDP
-    _pollTimer = Timer.periodic(const Duration(milliseconds: 20), (_) {
-      if (_session == null || _session == nullptr) return;
-      _lib.zmoshPoll(_session!);
-    });
+    _lastActivity = DateTime.now();
+    _currentIntervalMs = 16;
+    _reschedulePolling(16);
   }
 
   /// Send user input keys to remote zmx session
@@ -219,6 +248,8 @@ class ZmoshSession {
         ptr[i] = bytes[i];
       }
       _lib.zmoshSendInput(_session!, ptr, bytes.length);
+      _boostPolling();
+      _lib.zmoshPoll(_session!);
     } finally {
       calloc.free(ptr);
     }
@@ -233,6 +264,8 @@ class ZmoshSession {
   void resize(int rows, int cols) {
     if (_session == null || _session == nullptr) return;
     _lib.zmoshResize(_session!, rows, cols);
+    _boostPolling();
+    _lib.zmoshPoll(_session!);
   }
 
   /// Disconnect session and release resources
