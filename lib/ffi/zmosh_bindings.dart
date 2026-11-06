@@ -97,17 +97,9 @@ class ZmoshLibrary {
 
   static DynamicLibrary _openLibrary() {
     if (Platform.isAndroid || Platform.isLinux) {
-      try {
-        return DynamicLibrary.open('libzmosh.so');
-      } catch (_) {
-        return DynamicLibrary.process();
-      }
+      return DynamicLibrary.open('libzmosh.so');
     } else if (Platform.isMacOS || Platform.isIOS) {
-      try {
-        return DynamicLibrary.open('libzmosh.dylib');
-      } catch (_) {
-        return DynamicLibrary.process();
-      }
+      return DynamicLibrary.open('libzmosh.dylib');
     }
     throw UnsupportedError('Unsupported operating system: ${Platform.operatingSystem}');
   }

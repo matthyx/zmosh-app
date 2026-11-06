@@ -39,7 +39,8 @@ class SshBootstrap {
 
     await client.authenticated;
 
-    final session = await client.execute('zmosh serve "$sessionName"');
+    final cmd = 'PATH="\$PATH:/usr/local/bin:/opt/homebrew/bin:\$HOME/bin:\$HOME/.local/bin" zmosh serve "$sessionName"';
+    final session = await client.execute(cmd);
     final completer = Completer<BootstrapResult>();
     final buffer = StringBuffer();
 
@@ -49,15 +50,20 @@ class SshBootstrap {
 
       for (final line in buffer.toString().split('\n')) {
         final trimmed = line.trim();
-        // Look for: ZMOSH CONNECT <port> <base64_key>
-        if (trimmed.startsWith('ZMOSH CONNECT ')) {
+        // Look for: ZMX_CONNECT udp <port> <base64_key> or ZMOSH CONNECT <port> <base64_key>
+        if (trimmed.startsWith('ZMX_CONNECT ') || trimmed.startsWith('ZMOSH CONNECT ')) {
           final parts = trimmed.split(' ');
-          if (parts.length >= 4) {
-            final udpPort = int.tryParse(parts[2]);
-            final key = parts[3];
-            if (udpPort != null && key.isNotEmpty && !completer.isCompleted) {
-              completer.complete(BootstrapResult(udpPort: udpPort, keyBase64: key));
-            }
+          int? udpPort;
+          String? key;
+          if (parts.length >= 4 && parts[1] == 'udp') {
+            udpPort = int.tryParse(parts[2]);
+            key = parts[3];
+          } else if (parts.length >= 3) {
+            udpPort = int.tryParse(parts[1]);
+            key = parts[2];
+          }
+          if (udpPort != null && key != null && key.isNotEmpty && !completer.isCompleted) {
+            completer.complete(BootstrapResult(udpPort: udpPort, keyBase64: key));
           }
         }
       }

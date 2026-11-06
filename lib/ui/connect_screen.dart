@@ -1,8 +1,17 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../ffi/zmosh_bindings.dart';
 import '../services/ssh_bootstrap.dart';
 import 'terminal_screen.dart';
+
+const String defaultTabletKey = '''-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACCLvRTh1ypyzCH+QSRJ9f8X1a/lenvYeHEvuoKaGAxmQwAAAJBpzl1Zac5d
+WQAAAAtzc2gtZWQyNTUxOQAAACCLvRTh1ypyzCH+QSRJ9f8X1a/lenvYeHEvuoKaGAxmQw
+AAAECkoa9xKx9fFwiGmF8EQQLxghDe8FNivp3BM8s6ca8xgIu9FOHXKnLMIf5BJEn1/xfV
+r+V6e9h4cS+6gpoYDGZDAAAADHptb3NoLXRhYmxldAE=
+-----END OPENSSH PRIVATE KEY-----''';
 
 class ConnectScreen extends StatefulWidget {
   const ConnectScreen({super.key});
@@ -14,13 +23,15 @@ class ConnectScreen extends StatefulWidget {
 class _ConnectScreenState extends State<ConnectScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final _hostController = TextEditingController();
+  final _hostController = TextEditingController(text: '192.168.88.250');
   final _sshPortController = TextEditingController(text: '22');
-  final _userController = TextEditingController();
+  final _userController = TextEditingController(text: 'mbertschy');
   final _passwordController = TextEditingController();
-  final _sessionController = TextEditingController(text: 'main');
+  final _keyController = TextEditingController();
+  final _sessionController = TextEditingController(text: 'tablet');
 
   bool _isConnecting = false;
+  bool _showKeyInput = false;
   String? _statusMessage;
 
   @override
@@ -29,22 +40,48 @@ class _ConnectScreenState extends State<ConnectScreen> {
     _loadSavedConnection();
   }
 
+  static File get _configFile => File('/sdcard/Android/data/com.matthyx.zmosh/files/config.json');
+
   Future<void> _loadSavedConnection() async {
-    final prefs = await SharedPreferences.getInstance();
+    String host = '192.168.88.250';
+    String port = '22';
+    String user = 'mbertschy';
+    String session = 'tablet';
+    String keyContent = defaultTabletKey;
+
+    try {
+      if (await _configFile.exists()) {
+        final data = jsonDecode(await _configFile.readAsString()) as Map<String, dynamic>;
+        host = data['host'] ?? host;
+        port = data['port'] ?? port;
+        user = data['user'] ?? user;
+        session = data['session'] ?? session;
+        keyContent = data['private_key'] ?? keyContent;
+      }
+    } catch (_) {}
+
     setState(() {
-      _hostController.text = prefs.getString('last_host') ?? '';
-      _sshPortController.text = prefs.getString('last_ssh_port') ?? '22';
-      _userController.text = prefs.getString('last_user') ?? '';
-      _sessionController.text = prefs.getString('last_session') ?? 'main';
+      _hostController.text = host;
+      _sshPortController.text = port;
+      _userController.text = user;
+      _sessionController.text = session;
+      _keyController.text = keyContent.trim();
+      _showKeyInput = true;
     });
   }
 
   Future<void> _saveConnection() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('last_host', _hostController.text.trim());
-    await prefs.setString('last_ssh_port', _sshPortController.text.trim());
-    await prefs.setString('last_user', _userController.text.trim());
-    await prefs.setString('last_session', _sessionController.text.trim());
+    try {
+      final data = {
+        'host': _hostController.text.trim(),
+        'port': _sshPortController.text.trim(),
+        'user': _userController.text.trim(),
+        'session': _sessionController.text.trim(),
+        'private_key': _keyController.text.trim(),
+      };
+      await _configFile.parent.create(recursive: true);
+      await _configFile.writeAsString(jsonEncode(data));
+    } catch (_) {}
   }
 
   Future<void> _connect() async {
@@ -60,6 +97,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
       final sshPort = int.tryParse(_sshPortController.text.trim()) ?? 22;
       final user = _userController.text.trim();
       final password = _passwordController.text.isEmpty ? null : _passwordController.text;
+      final privateKey = _keyController.text.trim().isEmpty ? null : _keyController.text.trim();
       final sessionName = _sessionController.text.trim();
 
       await _saveConnection();
@@ -70,6 +108,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
         port: sshPort,
         username: user,
         password: password,
+        privateKey: privateKey,
         sessionName: sessionName,
       );
 
@@ -82,8 +121,8 @@ class _ConnectScreenState extends State<ConnectScreen> {
         host: host,
         port: bootstrap.udpPort,
         keyBase64: bootstrap.keyBase64,
-        rows: 24,
-        cols: 80,
+        rows: 40,
+        cols: 100,
         onOutput: (_) {},
       );
 
@@ -164,7 +203,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                       controller: _hostController,
                       decoration: const InputDecoration(
                         labelText: 'Remote Host',
-                        hintText: '192.168.1.100 or server.lan',
+                        hintText: '192.168.88.250',
                         prefixIcon: Icon(Icons.dns_outlined),
                         border: OutlineInputBorder(),
                       ),
@@ -193,7 +232,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                 controller: _userController,
                 decoration: const InputDecoration(
                   labelText: 'Username',
-                  hintText: 'e.g. mbertschy',
+                  hintText: 'mbertschy',
                   prefixIcon: Icon(Icons.person_outline),
                   border: OutlineInputBorder(),
                 ),
@@ -207,9 +246,72 @@ class _ConnectScreenState extends State<ConnectScreen> {
                 controller: _passwordController,
                 obscureText: true,
                 decoration: const InputDecoration(
-                  labelText: 'Password (or leave blank for SSH agent/key)',
+                  labelText: 'Password (leave blank if using SSH key)',
                   prefixIcon: Icon(Icons.lock_outline),
                   border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // SSH Key Section
+              Card(
+                color: Colors.grey[900],
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                _keyController.text.isNotEmpty
+                                    ? Icons.vpn_key
+                                    : Icons.vpn_key_outlined,
+                                color: _keyController.text.isNotEmpty
+                                    ? Colors.greenAccent
+                                    : Colors.grey,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _keyController.text.isNotEmpty
+                                    ? 'SSH Key Loaded (Ed25519)'
+                                    : 'SSH Private Key (Optional)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: _keyController.text.isNotEmpty
+                                      ? Colors.greenAccent
+                                      : Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setState(() => _showKeyInput = !_showKeyInput);
+                            },
+                            child: Text(_showKeyInput ? 'Hide' : 'Edit'),
+                          ),
+                        ],
+                      ),
+                      if (_showKeyInput) ...[
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _keyController,
+                          maxLines: 4,
+                          style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                          decoration: const InputDecoration(
+                            hintText: 'Paste PEM private key (-----BEGIN OPENSSH PRIVATE KEY-----)',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -219,7 +321,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                 controller: _sessionController,
                 decoration: const InputDecoration(
                   labelText: 'zmx Session Name',
-                  hintText: 'main',
+                  hintText: 'tablet',
                   prefixIcon: Icon(Icons.tab_outlined),
                   border: OutlineInputBorder(),
                 ),
