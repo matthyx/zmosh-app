@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
-import 'dart:isolate';
 import 'package:ffi/ffi.dart';
 
 // Status codes returned by libzmosh
@@ -120,9 +119,9 @@ class ZmoshSession {
   Pointer<OpaqueSession>? _session;
   Timer? _pollTimer;
 
-  final void Function(List<int> bytes) onOutput;
-  final void Function(ZmoshState state)? onStateChanged;
-  final void Function()? onSessionEnded;
+  void Function(List<int> bytes) onOutput;
+  void Function(ZmoshState state)? onStateChanged;
+  void Function()? onSessionEnded;
 
   static ZmoshSession? _activeSession;
 
