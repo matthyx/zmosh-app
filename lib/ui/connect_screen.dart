@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../ffi/zmosh_bindings.dart';
 import '../services/ssh_bootstrap.dart';
 import 'terminal_screen.dart';
@@ -43,11 +44,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
   static File get _configFile => File('/sdcard/Android/data/com.matthyx.zmosh/files/config.json');
 
   Future<void> _loadSavedConnection() async {
-    String host = '192.168.88.250';
-    String port = '22';
-    String user = 'mbertschy';
-    String session = 'tablet';
-    String keyContent = defaultTabletKey;
+    final prefs = await SharedPreferences.getInstance();
+    String host = prefs.getString('host') ?? '192.168.88.250';
+    String port = prefs.getString('port') ?? '22';
+    String user = prefs.getString('user') ?? 'mbertschy';
+    String session = prefs.getString('session') ?? 'tablet';
+    String keyContent = prefs.getString('private_key') ?? defaultTabletKey;
 
     try {
       if (await _configFile.exists()) {
@@ -72,6 +74,13 @@ class _ConnectScreenState extends State<ConnectScreen> {
 
   Future<void> _saveConnection() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('host', _hostController.text.trim());
+      await prefs.setString('port', _sshPortController.text.trim());
+      await prefs.setString('user', _userController.text.trim());
+      await prefs.setString('session', _sessionController.text.trim());
+      await prefs.setString('private_key', _keyController.text.trim());
+
       final data = {
         'host': _hostController.text.trim(),
         'port': _sshPortController.text.trim(),
