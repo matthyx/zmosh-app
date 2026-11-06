@@ -69,10 +69,45 @@ class SshBootstrap {
       }
     });
 
+    final stderrBuffer = StringBuffer();
     session.stderr.listen((Uint8List chunk) {
       final text = utf8.decode(chunk, allowMalformed: true);
-      // Log or handle stderr
+      stderrBuffer.write(text);
       print('[zmosh serve stderr]: $text');
+    });
+
+    session.done.then((_) {
+      if (!completer.isCompleted) {
+        final err = stderrBuffer.toString().trim();
+        if (err.contains('command not found') || err.contains('not found')) {
+          completer.completeError(
+            Exception(
+              'zmosh is not installed or not in PATH on the remote host.\n\n'
+              'Please install zmosh on the server:\n'
+              'https://github.com/matthyx/zmosh/releases',
+            ),
+          );
+        } else if (err.contains('UnknownCommand') || err.contains('unrecognized') || err.contains('Usage:')) {
+          completer.completeError(
+            Exception(
+              'The zmosh binary on the remote host does not support "serve".\n\n'
+              'Please upgrade zmosh to v1.1.0+ on the server:\n'
+              'https://github.com/matthyx/zmosh/releases',
+            ),
+          );
+        } else if (err.isNotEmpty) {
+          completer.completeError(
+            Exception('Remote zmosh failed with error:\n$err'),
+          );
+        } else {
+          completer.completeError(
+            Exception(
+              'Remote process closed without outputting connection info.\n'
+              'Ensure zmosh (>= 1.0.0) is installed on the host.',
+            ),
+          );
+        }
+      }
     });
 
     try {
