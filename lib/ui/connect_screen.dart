@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../ffi/zmosh_bindings.dart';
 import '../services/ssh_bootstrap.dart';
+import '../theme/app_theme.dart';
 import 'terminal_screen.dart';
 
 const String defaultTabletKey = '''-----BEGIN OPENSSH PRIVATE KEY-----
@@ -180,6 +181,16 @@ class _ConnectScreenState extends State<ConnectScreen> {
       appBar: AppBar(
         title: const Text('zmosh mobile'),
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(ThemeController.instance.isDark ? Icons.light_mode : Icons.dark_mode),
+            tooltip: ThemeController.instance.isDark ? 'Switch to Light / E-ink Mode' : 'Switch to Dark Mode',
+            onPressed: () {
+              ThemeController.instance.toggleTheme();
+              setState(() {});
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
 import '../ffi/zmosh_bindings.dart';
+import '../theme/app_theme.dart';
 
 class TerminalScreen extends StatefulWidget {
   final ZmoshSession session;
@@ -106,10 +107,12 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = ThemeController.instance.isDark;
+    final terminalTheme = isDark ? darkTerminalTheme : lightTerminalTheme;
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: isDark ? Colors.black : Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.grey[900],
         title: Row(
           children: [
             Container(
@@ -125,13 +128,24 @@ class _TerminalScreenState extends State<TerminalScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              widget.sessionTitle,
-              style: const TextStyle(fontSize: 16, fontFamily: 'monospace'),
+            Expanded(
+              child: Text(
+                widget.sessionTitle,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 15, fontFamily: 'monospace'),
+              ),
             ),
           ],
         ),
         actions: [
+          IconButton(
+            icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+            tooltip: isDark ? 'Switch to Light / E-ink Mode' : 'Switch to Dark Mode',
+            onPressed: () {
+              ThemeController.instance.toggleTheme();
+              setState(() {});
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.fullscreen),
             tooltip: 'Toggle Fullscreen',
@@ -178,6 +192,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
                 _terminal,
                 controller: _terminalController,
                 autofocus: true,
+                theme: terminalTheme,
                 backgroundOpacity: 1.0,
                 textStyle: const TerminalStyle(
                   fontSize: 13,
@@ -187,54 +202,55 @@ class _TerminalScreenState extends State<TerminalScreen> {
             ),
 
             // Virtual Keyboard Auxiliary Bar (Crucial for mobile shell work)
-            _buildAuxiliaryKeyBar(),
+            _buildAuxiliaryKeyBar(isDark),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAuxiliaryKeyBar() {
+  Widget _buildAuxiliaryKeyBar(bool isDark) {
     return Container(
       height: 44,
-      color: Colors.grey[950],
+      color: isDark ? const Color(0xFF181818) : const Color(0xFFE4E4E4),
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         children: [
-          _keyButton('ESC', () => _sendKey('\x1b')),
+          _keyButton('ESC', () => _sendKey('\x1b'), isDark),
           _toggleButton('CTRL', _ctrlActive, () {
             setState(() => _ctrlActive = !_ctrlActive);
-          }),
+          }, isDark),
           _toggleButton('ALT', _altActive, () {
             setState(() => _altActive = !_altActive);
-          }),
-          _keyButton('TAB', () => _sendKey('\t')),
-          _keyButton('▲', () => _sendKey('\x1b[A')),
-          _keyButton('▼', () => _sendKey('\x1b[B')),
-          _keyButton('◄', () => _sendKey('\x1b[D')),
-          _keyButton('►', () => _sendKey('\x1b[C')),
-          _keyButton('HOME', () => _sendKey('\x1b[H')),
-          _keyButton('END', () => _sendKey('\x1b[F')),
-          _keyButton('PGUP', () => _sendKey('\x1b[5~')),
-          _keyButton('PGDN', () => _sendKey('\x1b[6~')),
-          _keyButton('~', () => _sendKey('~')),
-          _keyButton('/', () => _sendKey('/')),
-          _keyButton('|', () => _sendKey('|')),
-          _keyButton('-', () => _sendKey('-')),
-          _keyButton('`', () => _sendKey('`')),
+          }, isDark),
+          _keyButton('TAB', () => _sendKey('\t'), isDark),
+          _keyButton('▲', () => _sendKey('\x1b[A'), isDark),
+          _keyButton('▼', () => _sendKey('\x1b[B'), isDark),
+          _keyButton('◄', () => _sendKey('\x1b[D'), isDark),
+          _keyButton('►', () => _sendKey('\x1b[C'), isDark),
+          _keyButton('HOME', () => _sendKey('\x1b[H'), isDark),
+          _keyButton('END', () => _sendKey('\x1b[F'), isDark),
+          _keyButton('PGUP', () => _sendKey('\x1b[5~'), isDark),
+          _keyButton('PGDN', () => _sendKey('\x1b[6~'), isDark),
+          _keyButton('~', () => _sendKey('~'), isDark),
+          _keyButton('/', () => _sendKey('/'), isDark),
+          _keyButton('|', () => _sendKey('|'), isDark),
+          _keyButton('-', () => _sendKey('-'), isDark),
+          _keyButton('`', () => _sendKey('`'), isDark),
         ],
       ),
     );
   }
 
-  Widget _keyButton(String label, VoidCallback onPressed) {
+  Widget _keyButton(String label, VoidCallback onPressed, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.grey[850],
-          foregroundColor: Colors.white,
+          backgroundColor: isDark ? Colors.grey[850] : Colors.white,
+          foregroundColor: isDark ? Colors.white : Colors.black87,
+          elevation: isDark ? 0 : 1,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           minimumSize: const Size(36, 36),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
@@ -245,13 +261,16 @@ class _TerminalScreenState extends State<TerminalScreen> {
     );
   }
 
-  Widget _toggleButton(String label, bool active, VoidCallback onPressed) {
+  Widget _toggleButton(String label, bool active, VoidCallback onPressed, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: active ? Colors.blueAccent : Colors.grey[850],
-          foregroundColor: Colors.white,
+          backgroundColor: active
+              ? Colors.blueAccent
+              : (isDark ? Colors.grey[850] : Colors.white),
+          foregroundColor: active ? Colors.white : (isDark ? Colors.white : Colors.black87),
+          elevation: isDark ? 0 : 1,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           minimumSize: const Size(36, 36),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),

@@ -53,9 +53,21 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            def keystoreFile = file("../release.keystore")
+            if (keystoreFile.exists()) {
+                storeFile keystoreFile
+                storePassword "zmoshrelease"
+                keyAlias "zmosh"
+                keyPassword "zmoshrelease"
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled false
             shrinkResources false
         }
