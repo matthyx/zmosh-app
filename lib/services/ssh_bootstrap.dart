@@ -44,13 +44,9 @@ class SshBootstrap {
     final completer = Completer<BootstrapResult>();
     final buffer = StringBuffer();
 
-    final subscription = session.stdout.listen((Uint8List chunk) {
-      final text = utf8.decode(chunk, allowMalformed: true);
-      buffer.write(text);
-
+    void tryParseBuffer() {
       for (final line in buffer.toString().split('\n')) {
         final trimmed = line.trim();
-        // Look for: ZMX_CONNECT udp <port> <base64_key> or ZMOSH CONNECT <port> <base64_key>
         if (trimmed.startsWith('ZMX_CONNECT ') || trimmed.startsWith('ZMOSH CONNECT ')) {
           final parts = trimmed.split(' ');
           int? udpPort;
@@ -67,6 +63,14 @@ class SshBootstrap {
           }
         }
       }
+    }
+
+    final subscription = session.stdout.listen((Uint8List chunk) {
+      final text = utf8.decode(chunk, allowMalformed: true);
+      buffer.write(text);
+      tryParseBuffer();
+    }, onDone: () {
+      tryParseBuffer();
     });
 
     final stderrBuffer = StringBuffer();
@@ -76,7 +80,9 @@ class SshBootstrap {
       print('[zmosh serve stderr]: $text');
     });
 
-    session.done.then((_) {
+    session.done.then((_) async {
+      await Future.delayed(const Duration(milliseconds: 300));
+      tryParseBuffer();
       if (!completer.isCompleted) {
         final err = stderrBuffer.toString().trim();
         if (err.contains('command not found') || err.contains('not found')) {
