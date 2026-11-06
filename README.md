@@ -4,6 +4,10 @@ Mobile client for the [**zmosh**](https://github.com/matthyx/zmosh) roaming gate
 
 Built with **Flutter**, [**xterm.dart**](https://pub.dev/packages/xterm), and high-performance native UDP roaming via [**libzmosh**](https://github.com/matthyx/zmosh).
 
+<p align="center">
+  <img src="docs/screenshots/terminal.png" alt="zmosh-app running on Android tablet" width="450">
+</p>
+
 ---
 
 ## Overview
