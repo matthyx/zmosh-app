@@ -37,16 +37,10 @@ jobs:
       - name: Build Universal APK
         run: flutter build apk --release
 
-      - name: Build Split per-ABI APKs
-        run: flutter build apk --release --split-per-abi
-
       - name: Prepare release artifacts
         run: |
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-release.apk dist/zmosh-app-universal.apk
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/zmosh-app-arm64-v8a.apk
-          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/zmosh-app-armeabi-v7a.apk
-          cp build/app/outputs/flutter-apk/app-x86_64-release.apk dist/zmosh-app-x86_64.apk
+          cp build/app/outputs/flutter-apk/app-release.apk dist/zmosh-app.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
