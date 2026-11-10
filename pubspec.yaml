@@ -1,7 +1,7 @@
 name: zmosh_app
 description: "Mobile client for zmosh / zmx terminal multiplexer"
 publish_to: 'none'
-version: 0.2.0+3
+version: 0.2.1+4
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

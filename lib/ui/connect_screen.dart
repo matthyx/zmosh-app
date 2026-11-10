@@ -133,7 +133,6 @@ class _ConnectScreenState extends State<ConnectScreen> {
         keyBase64: bootstrap.keyBase64,
         rows: 40,
         cols: 100,
-        onOutput: (_) {},
       );
 
       if (!mounted) return;

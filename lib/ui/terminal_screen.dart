@@ -49,8 +49,12 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
     // Forward received UDP output directly into the xterm emulator
     widget.session.onOutput = (List<int> bytes) {
-      final text = utf8.decode(bytes, allowMalformed: true);
-      _terminal.write(text);
+      try {
+        final text = utf8.decode(bytes, allowMalformed: true);
+        _terminal.write(text);
+      } catch (e, st) {
+        print('[TerminalScreen onOutput ERROR]: $e\n$st');
+      }
     };
 
     // Listen to network state changes

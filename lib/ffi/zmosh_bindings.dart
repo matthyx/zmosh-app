@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 
 // Status codes returned by libzmosh
@@ -111,37 +112,72 @@ class ZmoshSession {
   Pointer<OpaqueSession>? _session;
   Timer? _pollTimer;
 
-  void Function(List<int> bytes) onOutput;
+  void Function(List<int> bytes)? _onOutput;
+  void Function(List<int> bytes) get onOutput => _onOutput ?? (_) {};
+  set onOutput(void Function(List<int> bytes) handler) {
+    _onOutput = handler;
+    // Flush any output buffered before this handler was attached
+    if (_bufferedOutput.isNotEmpty) {
+      final queued = List<List<int>>.from(_bufferedOutput);
+      _bufferedOutput.clear();
+      for (final chunk in queued) {
+        try {
+          handler(chunk);
+        } catch (e, st) {
+          print('[zmosh flushed onOutput ERROR]: $e\n$st');
+        }
+      }
+    }
+  }
+
+  final List<List<int>> _bufferedOutput = [];
   void Function(ZmoshState state)? onStateChanged;
   void Function()? onSessionEnded;
 
   static ZmoshSession? _activeSession;
 
   ZmoshSession._({
-    required this.onOutput,
+    void Function(List<int> bytes)? onOutput,
     this.onStateChanged,
     this.onSessionEnded,
-  });
+  }) : _onOutput = onOutput;
 
   static void _staticOutputCallback(Pointer<Void> ctx, Pointer<Uint8> data, int len) {
-    if (_activeSession != null && len > 0) {
-      _activeSession!._boostPolling();
-      final list = data.asTypedList(len);
-      _activeSession!.onOutput(List<int>.from(list));
+    try {
+      if (_activeSession != null && len > 0 && data != nullptr) {
+        _activeSession!._lastActivity = DateTime.now();
+        final list = data.asTypedList(len);
+        final copy = Uint8List.fromList(list);
+        if (_activeSession!._onOutput != null) {
+          _activeSession!._onOutput!(copy);
+        } else {
+          _activeSession!._bufferedOutput.add(copy);
+        }
+      }
+    } catch (e, st) {
+      print('[zmosh _staticOutputCallback ERROR]: $e\n$st');
     }
   }
 
   static void _staticStateCallback(Pointer<Void> ctx, int state) {
-    if (_activeSession?.onStateChanged != null) {
-      final s = state >= 0 && state < ZmoshState.values.length
-          ? ZmoshState.values[state]
-          : ZmoshState.disconnected;
-      _activeSession!.onStateChanged!(s);
+    try {
+      if (_activeSession?.onStateChanged != null) {
+        final s = state >= 0 && state < ZmoshState.values.length
+            ? ZmoshState.values[state]
+            : ZmoshState.disconnected;
+        _activeSession!.onStateChanged!(s);
+      }
+    } catch (e, st) {
+      print('[zmosh _staticStateCallback ERROR]: $e\n$st');
     }
   }
 
   static void _staticEndCallback(Pointer<Void> ctx) {
-    _activeSession?.onSessionEnded?.call();
+    try {
+      _activeSession?.onSessionEnded?.call();
+    } catch (e, st) {
+      print('[zmosh _staticEndCallback ERROR]: $e\n$st');
+    }
   }
 
   /// Establish UDP link to remote zmosh daemon
@@ -151,7 +187,7 @@ class ZmoshSession {
     required String keyBase64,
     required int rows,
     required int cols,
-    required void Function(List<int> bytes) onOutput,
+    void Function(List<int> bytes)? onOutput,
     void Function(ZmoshState state)? onStateChanged,
     void Function()? onSessionEnded,
   }) {
@@ -221,7 +257,11 @@ class ZmoshSession {
 
   void _pollStep() {
     if (_session == null || _session == nullptr) return;
-    _lib.zmoshPoll(_session!);
+    try {
+      _lib.zmoshPoll(_session!);
+    } catch (e, st) {
+      print('[zmosh _pollStep ERROR]: $e\n$st');
+    }
 
     final idleMs = DateTime.now().difference(_lastActivity).inMilliseconds;
     if (idleMs > 5000 && _currentIntervalMs != 250) {
@@ -249,7 +289,8 @@ class ZmoshSession {
       }
       _lib.zmoshSendInput(_session!, ptr, bytes.length);
       _boostPolling();
-      _lib.zmoshPoll(_session!);
+    } catch (e, st) {
+      print('[zmosh sendInput ERROR]: $e\n$st');
     } finally {
       calloc.free(ptr);
     }
@@ -263,9 +304,12 @@ class ZmoshSession {
   /// Send terminal resize update
   void resize(int rows, int cols) {
     if (_session == null || _session == nullptr) return;
-    _lib.zmoshResize(_session!, rows, cols);
-    _boostPolling();
-    _lib.zmoshPoll(_session!);
+    try {
+      _lib.zmoshResize(_session!, rows, cols);
+      _boostPolling();
+    } catch (e, st) {
+      print('[zmosh resize ERROR]: $e\n$st');
+    }
   }
 
   /// Disconnect session and release resources
